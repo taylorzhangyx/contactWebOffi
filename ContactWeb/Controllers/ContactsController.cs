@@ -7,6 +7,7 @@ using System.Net;
 using System.Web;
 using System.Web.Mvc;
 using ContactWeb.Models;
+using Microsoft.AspNet.Identity;
 
 namespace ContactWeb.Controllers
 {
@@ -15,12 +16,15 @@ namespace ContactWeb.Controllers
         private ContactWebContext db = new ContactWebContext();
 
         // GET: Contacts
+        [Authorize]
         public ActionResult Index()
         {
-            return View(db.Contacts.ToList());
+            var userId = GetCurrentUserId();
+            return View(db.Contacts.Where(x => x.UserId == userId).ToList());
         }
 
         // GET: Contacts/Details/5
+        [Authorize]
         public ActionResult Details(int? id)
         {
             if (id == null)
@@ -36,8 +40,10 @@ namespace ContactWeb.Controllers
         }
 
         // GET: Contacts/Create
+        [Authorize]
         public ActionResult Create()
         {
+            ViewBag.UserId = GetCurrentUserId();
             return View();
         }
 
@@ -45,6 +51,7 @@ namespace ContactWeb.Controllers
         // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
         // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
+        [Authorize]
         [ValidateAntiForgeryToken]
         public ActionResult Create([Bind(Include = "Id,UserId,FirstName,LastName,Email,PhonePrimary,PhoneSecondary,Birthday,StreetAddress1,StreetAddress2,City,State,Zip")] Contact contact)
         {
@@ -54,11 +61,12 @@ namespace ContactWeb.Controllers
                 db.SaveChanges();
                 return RedirectToAction("Index");
             }
-
+            ViewBag.UserId = GetCurrentUserId();
             return View(contact);
         }
 
         // GET: Contacts/Edit/5
+        [Authorize]
         public ActionResult Edit(int? id)
         {
             if (id == null)
@@ -66,10 +74,11 @@ namespace ContactWeb.Controllers
                 return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
             }
             Contact contact = db.Contacts.Find(id);
-            if (contact == null)
+            if (contact == null || !EnsureIsUserContact(contact))
             {
                 return HttpNotFound();
             }
+            ViewBag.UserId = GetCurrentUserId();
             return View(contact);
         }
 
@@ -77,6 +86,7 @@ namespace ContactWeb.Controllers
         // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
         // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
+        [Authorize]
         [ValidateAntiForgeryToken]
         public ActionResult Edit([Bind(Include = "Id,UserId,FirstName,LastName,Email,PhonePrimary,PhoneSecondary,Birthday,StreetAddress1,StreetAddress2,City,State,Zip")] Contact contact)
         {
@@ -86,10 +96,12 @@ namespace ContactWeb.Controllers
                 db.SaveChanges();
                 return RedirectToAction("Index");
             }
+            ViewBag.UserId = GetCurrentUserId();
             return View(contact);
         }
 
         // GET: Contacts/Delete/5
+        [Authorize]
         public ActionResult Delete(int? id)
         {
             if (id == null)
@@ -105,6 +117,7 @@ namespace ContactWeb.Controllers
         }
 
         // POST: Contacts/Delete/5
+        [Authorize]
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public ActionResult DeleteConfirmed(int id)
@@ -114,7 +127,7 @@ namespace ContactWeb.Controllers
             db.SaveChanges();
             return RedirectToAction("Index");
         }
-
+        [Authorize]
         protected override void Dispose(bool disposing)
         {
             if (disposing)
@@ -122,6 +135,16 @@ namespace ContactWeb.Controllers
                 db.Dispose();
             }
             base.Dispose(disposing);
+        }
+
+        public Guid GetCurrentUserId()
+        {
+            return new Guid(User.Identity.GetUserId());
+        }
+
+        private bool EnsureIsUserContact(Contact contact)
+        {
+            return contact.UserId == GetCurrentUserId();
         }
     }
 }
